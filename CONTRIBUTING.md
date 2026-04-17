@@ -18,7 +18,7 @@ keep in mind when opening an issue or pull request.
 
 ## Developer environment
 
-Minimum Rust version is **1.86** (matches the `rust-version` field in
+Minimum Rust version is **1.88** (matches the `rust-version` field in
 [Cargo.toml](Cargo.toml)). Any recent stable toolchain works fine locally.
 
 ```bash
