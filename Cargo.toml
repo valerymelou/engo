@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/valerymelou/engo"
 homepage = "https://github.com/valerymelou/engo"
 authors = ["Valery Melou <me@valerymelou.com>"]
-rust-version = "1.75"
+rust-version = "1.85"
 
 [workspace.dependencies]
 anyhow = "1"
