@@ -246,9 +246,8 @@ pub fn parse(xml: &[u8]) -> Result<XliffView> {
         buf.clear();
     }
 
-    let version = version.ok_or_else(|| {
-        Error::Format("missing <xliff version=\"…\"> root element".into())
-    })?;
+    let version = version
+        .ok_or_else(|| Error::Format("missing <xliff version=\"…\"> root element".into()))?;
 
     Ok(XliffView {
         version,
@@ -291,7 +290,11 @@ impl PendingUnit {
         TransUnit {
             id: self.id,
             source: self.source,
-            target: if self.has_target { self.target.or(Some(String::new())) } else { None },
+            target: if self.has_target {
+                self.target.or(Some(String::new()))
+            } else {
+                None
+            },
             state: self.state.unwrap_or(default_state),
             notes: self.notes,
         }
@@ -424,7 +427,9 @@ fn rewrite_unit(
                 out.push(Event::End(BytesEnd::new("target")));
                 target_handled = true;
             }
-            Event::Start(start) if version == XliffVersion::V2_0 && local(start.name()) == b"segment" => {
+            Event::Start(start)
+                if version == XliffVersion::V2_0 && local(start.name()) == b"segment" =>
+            {
                 out.push(Event::Start(update_segment_state_attr(start)?));
             }
             _ => out.push(e.clone()),
@@ -532,7 +537,10 @@ fn position_before_segment_end(events: &[Event<'static>]) -> Option<usize> {
 fn escape_text(s: &str) -> Cow<'_, str> {
     // Only `&`, `<`, `>` need escaping in text nodes. We intentionally do *not*
     // escape quotes — they're only special in attribute values.
-    let needs = s.as_bytes().iter().any(|&b| matches!(b, b'<' | b'>' | b'&'));
+    let needs = s
+        .as_bytes()
+        .iter()
+        .any(|&b| matches!(b, b'<' | b'>' | b'&'));
     if !needs {
         return Cow::Borrowed(s);
     }

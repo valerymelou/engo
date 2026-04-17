@@ -27,8 +27,8 @@ pub struct JsonCatalog {
 }
 
 pub fn parse(bytes: &[u8]) -> Result<JsonCatalog> {
-    let v: Value = serde_json::from_slice(bytes)
-        .map_err(|e| Error::Format(format!("invalid JSON: {e}")))?;
+    let v: Value =
+        serde_json::from_slice(bytes).map_err(|e| Error::Format(format!("invalid JSON: {e}")))?;
     let mut entries = Vec::new();
     flatten(&v, "", &mut entries);
     Ok(JsonCatalog { entries })
@@ -86,8 +86,8 @@ pub fn patch(bytes: &[u8], updates: &HashMap<String, String>) -> Result<Vec<u8>>
         return Ok(bytes.to_vec());
     }
 
-    let mut v: Value = serde_json::from_slice(bytes)
-        .map_err(|e| Error::Format(format!("invalid JSON: {e}")))?;
+    let mut v: Value =
+        serde_json::from_slice(bytes).map_err(|e| Error::Format(format!("invalid JSON: {e}")))?;
 
     if !v.is_object() {
         return Err(Error::Format("JSON catalog root must be an object".into()));

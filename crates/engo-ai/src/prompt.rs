@@ -17,7 +17,9 @@ pub fn build_system(
     glossary: &BTreeMap<String, String>,
 ) -> String {
     let mut out = String::with_capacity(512);
-    out.push_str("You are a professional localization translator. Translate user-interface strings from ");
+    out.push_str(
+        "You are a professional localization translator. Translate user-interface strings from ",
+    );
     out.push_str(source_lang);
     out.push_str(" to ");
     out.push_str(target_lang);
@@ -27,7 +29,9 @@ pub fn build_system(
     out.push_str("1. Preserve every placeholder EXACTLY: `{name}`, `{0}`, `%s`, `%1$d`, and ICU constructs like `{count, plural, one {...} other {...}}`. Do not rename, translate, or drop them.\n");
     out.push_str("2. Preserve the inner structure of ICU plurals and selects. You may translate the branch text, but keep the same variable name, keyword (plural/select/etc.), and the same set of category keys (one, other, etc.).\n");
     out.push_str("3. Match the register of the source (casual UI → casual target). Prefer concise translations that fit in buttons and labels.\n");
-    out.push_str("4. Do not translate product or brand names. When in doubt, prefer the source word.\n");
+    out.push_str(
+        "4. Do not translate product or brand names. When in doubt, prefer the source word.\n",
+    );
     out.push_str("5. Output via the `emit_translations` tool. Do not add commentary.\n");
 
     if let Some(desc) = app_description {

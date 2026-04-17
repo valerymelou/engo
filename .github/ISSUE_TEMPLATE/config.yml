@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and help
+    url: https://github.com/valerymelou/engo/discussions
+    about: Please use Discussions for questions, design debates, and general help.
+  - name: Security issue
+    url: https://github.com/valerymelou/engo/blob/main/SECURITY.md
+    about: Do not file security issues publicly. Follow SECURITY.md.

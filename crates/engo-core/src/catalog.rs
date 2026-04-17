@@ -42,7 +42,11 @@ pub struct TranslationJob {
 /// caller — keeping the glob step out of core means the core crate doesn't
 /// depend on the `glob` crate and stays easy to unit-test with synthetic
 /// directory layouts.
-pub fn plan_jobs(cfg: &Config, paths: &[PathBuf], opts: DiffOptions) -> Result<Vec<TranslationJob>> {
+pub fn plan_jobs(
+    cfg: &Config,
+    paths: &[PathBuf],
+    opts: DiffOptions,
+) -> Result<Vec<TranslationJob>> {
     match cfg.project.format {
         ProjectFormat::Xliff => plan_xliff(cfg, paths, opts),
         ProjectFormat::Arb => plan_arb(cfg, paths, opts),
@@ -172,7 +176,10 @@ fn plan_arb(cfg: &Config, paths: &[PathBuf], _opts: DiffOptions) -> Result<Vec<T
 
     let mut jobs = Vec::new();
     for (key, mut members) in groups {
-        let Some(source_idx) = members.iter().position(|m| m.locale == cfg.languages.source) else {
+        let Some(source_idx) = members
+            .iter()
+            .position(|m| m.locale == cfg.languages.source)
+        else {
             tracing::warn!(
                 "no source file (@@locale == {:?}) in group {:?}; skipping",
                 cfg.languages.source,
@@ -256,7 +263,10 @@ fn plan_json(cfg: &Config, paths: &[PathBuf], _opts: DiffOptions) -> Result<Vec<
 
     let mut jobs = Vec::new();
     for (key, mut members) in groups {
-        let Some(source_idx) = members.iter().position(|m| m.locale == cfg.languages.source) else {
+        let Some(source_idx) = members
+            .iter()
+            .position(|m| m.locale == cfg.languages.source)
+        else {
             tracing::warn!(
                 "no source file (locale == {:?}) in group {:?}; skipping",
                 cfg.languages.source,
@@ -407,11 +417,7 @@ mod tests {
         let d = tempdir("arb-pair");
         let en = d.join("app_en.arb");
         let fr = d.join("app_fr.arb");
-        fs::write(
-            &en,
-            r#"{"@@locale":"en","greeting":"Hello","bye":"Bye"}"#,
-        )
-        .unwrap();
+        fs::write(&en, r#"{"@@locale":"en","greeting":"Hello","bye":"Bye"}"#).unwrap();
         fs::write(&fr, r#"{"@@locale":"fr","greeting":"Bonjour"}"#).unwrap();
 
         let cfg = base_cfg(ProjectFormat::Arb);

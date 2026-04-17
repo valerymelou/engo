@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a new feature or an improvement.
+title: "[feat]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing, please check the [roadmap](https://github.com/valerymelou/engo#roadmap)
+        and existing [issues](https://github.com/valerymelou/engo/issues) — the
+        idea may already be planned or tracked.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: |
+        Describe the situation you're in and what's painful about it today.
+        A concrete example is worth a thousand abstract descriptions.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        What would you like Engo to do? If you have a CLI shape or a config
+        field in mind, sketch it.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context

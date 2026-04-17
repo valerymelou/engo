@@ -4,8 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
 rust-version.workspace = true
-description = "AI provider abstractions for Engo (Anthropic, OpenAI, Engo Cloud)."
+description = "AI provider abstractions for the Engo i18n CLI (Anthropic today; OpenAI and Engo Cloud on the roadmap)."
+readme = "../../README.md"
+keywords = ["i18n", "translation", "anthropic", "llm", "l10n"]
+categories = ["internationalization", "api-bindings"]
 
 [dependencies]
 anyhow.workspace = true
@@ -16,7 +21,7 @@ reqwest.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 tokio.workspace = true
-engo-core = { path = "../engo-core" }
+engo-core = { path = "../engo-core", version = "0.1.0" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "test-util"] }

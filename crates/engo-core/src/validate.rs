@@ -299,7 +299,10 @@ mod tests {
     #[test]
     fn extracts_simple_braces() {
         assert_eq!(sig("Hello {name}"), vec!["brace:name"]);
-        assert_eq!(sig("{greeting} {name}"), vec!["brace:greeting", "brace:name"]);
+        assert_eq!(
+            sig("{greeting} {name}"),
+            vec!["brace:greeting", "brace:name"]
+        );
     }
 
     #[test]

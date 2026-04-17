@@ -125,7 +125,11 @@ pub fn missing_keys(source: &ArbFile, target: &ArbFile) -> Vec<ArbEntry> {
     source
         .entries
         .iter()
-        .filter(|e| target_values.get(e.key.as_str()).map_or(true, |v| v.is_empty()))
+        .filter(|e| {
+            target_values
+                .get(e.key.as_str())
+                .map_or(true, |v| v.is_empty())
+        })
         .cloned()
         .collect()
 }
@@ -157,7 +161,10 @@ mod tests {
         assert_eq!(f.entries.len(), 2);
         let greeting = f.entries.iter().find(|e| e.key == "greeting").unwrap();
         assert_eq!(greeting.value, "Hello, {name}!");
-        assert_eq!(greeting.description.as_deref(), Some("Greeting on home screen"));
+        assert_eq!(
+            greeting.description.as_deref(),
+            Some("Greeting on home screen")
+        );
     }
 
     #[test]
@@ -172,7 +179,9 @@ mod tests {
     #[test]
     fn missing_keys_treats_empty_string_as_pending() {
         let src = parse(SRC.as_bytes()).unwrap();
-        let tgt = parse(r#"{"@@locale":"fr","greeting":"","login_button":"Se connecter"}"#.as_bytes()).unwrap();
+        let tgt =
+            parse(r#"{"@@locale":"fr","greeting":"","login_button":"Se connecter"}"#.as_bytes())
+                .unwrap();
         let missing = missing_keys(&src, &tgt);
         let ids: Vec<&str> = missing.iter().map(|e| e.key.as_str()).collect();
         assert_eq!(ids, vec!["greeting"]);

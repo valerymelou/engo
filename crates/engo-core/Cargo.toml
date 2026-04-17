@@ -4,8 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
 rust-version.workspace = true
-description = "Core types, config, format parsers, and project detection for Engo."
+description = "Core types, config, format parsers (XLIFF/ARB/JSON), cache, and safety helpers for the Engo i18n CLI."
+readme = "../../README.md"
+keywords = ["i18n", "xliff", "arb", "translation", "l10n"]
+categories = ["internationalization", "parser-implementations"]
 
 [dependencies]
 anyhow.workspace = true

@@ -67,8 +67,7 @@ pub struct Args {
 
 pub async fn run(args: Args) -> Result<()> {
     let cfg_path = resolve_config_path(&args.config)?;
-    let cfg = Config::load(&cfg_path)
-        .with_context(|| format!("loading {}", cfg_path.display()))?;
+    let cfg = Config::load(&cfg_path).with_context(|| format!("loading {}", cfg_path.display()))?;
     let cfg_dir = cfg_path
         .parent()
         .ok_or_else(|| anyhow!("config path has no parent"))?
@@ -85,8 +84,8 @@ pub async fn run(args: Args) -> Result<()> {
     }
 
     let opts = DiffOptions { force: args.force };
-    let mut jobs = catalog::plan_jobs(&cfg, &files, opts)
-        .with_context(|| "planning translation jobs")?;
+    let mut jobs =
+        catalog::plan_jobs(&cfg, &files, opts).with_context(|| "planning translation jobs")?;
 
     if let Some(filter) = args.target.as_deref() {
         jobs.retain(|j| j.target_lang == filter);
@@ -313,18 +312,14 @@ async fn process_job(
 
     // 2. Batch provider calls under a semaphore. Progress bar tracks batches.
     if !requests.is_empty() {
-        let batches: Vec<Vec<TranslationRequest>> = requests
-            .chunks(batch_size)
-            .map(|c| c.to_vec())
-            .collect();
+        let batches: Vec<Vec<TranslationRequest>> =
+            requests.chunks(batch_size).map(|c| c.to_vec()).collect();
 
         let pb = ProgressBar::new(batches.len() as u64);
         pb.set_style(
-            ProgressStyle::with_template(
-                "  [{bar:30}] {pos}/{len} batches  {elapsed_precise}",
-            )
-            .unwrap()
-            .progress_chars("=> "),
+            ProgressStyle::with_template("  [{bar:30}] {pos}/{len} batches  {elapsed_precise}")
+                .unwrap()
+                .progress_chars("=> "),
         );
 
         let mut futs = FuturesUnordered::new();
@@ -379,18 +374,13 @@ async fn process_job(
                                 Err(e) => rejected.push((r.id, e.to_string())),
                             }
                         } else {
-                            rejected.push((
-                                r.id,
-                                "model returned an id we didn't ask for".to_string(),
-                            ));
+                            rejected
+                                .push((r.id, "model returned an id we didn't ask for".to_string()));
                         }
                     }
                     for req in &batch {
                         if !got_ids.contains(&req.id) {
-                            rejected.push((
-                                req.id.clone(),
-                                "model dropped this id".to_string(),
-                            ));
+                            rejected.push((req.id.clone(), "model dropped this id".to_string()));
                         }
                     }
                 }

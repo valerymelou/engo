@@ -55,11 +55,7 @@ impl<'a> CacheKey<'a> {
         write_field(&mut h, b"src", self.source.as_bytes());
         write_field(&mut h, b"sl", self.source_lang.as_bytes());
         write_field(&mut h, b"tl", self.target_lang.as_bytes());
-        write_field(
-            &mut h,
-            b"ctx",
-            self.context.unwrap_or("").as_bytes(),
-        );
+        write_field(&mut h, b"ctx", self.context.unwrap_or("").as_bytes());
         write_field(&mut h, b"mdl", self.model.as_bytes());
         write_field(&mut h, b"gv", self.glossary_version.as_bytes());
         h.finalize().into()

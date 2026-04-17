@@ -54,11 +54,7 @@ fn detect_node(root: &Path) -> Option<Detection> {
     let has_dep = |name: &str| -> bool {
         ["dependencies", "devDependencies", "peerDependencies"]
             .iter()
-            .any(|section| {
-                pkg.get(section)
-                    .and_then(|d| d.get(name))
-                    .is_some()
-            })
+            .any(|section| pkg.get(section).and_then(|d| d.get(name)).is_some())
     };
 
     // Angular → XLIFF

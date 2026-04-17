@@ -10,7 +10,9 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/engo-cli/engo"
+repository = "https://github.com/valerymelou/engo"
+homepage = "https://github.com/valerymelou/engo"
+authors = ["Valery Melou <me@valerymelou.com>"]
 rust-version = "1.75"
 
 [workspace.dependencies]

@@ -204,8 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn load_save_roundtrip(
-    ) {
+    fn load_save_roundtrip() {
         let dir = tempdir();
         let path = dir.join("engo.toml");
         sample().save(&path).unwrap();

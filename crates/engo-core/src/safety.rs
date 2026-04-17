@@ -181,7 +181,10 @@ mod tests {
         fs::write(&p, "original").unwrap();
         atomic_write_with_backup(&p, b"updated").unwrap();
         assert_eq!(fs::read_to_string(&p).unwrap(), "updated");
-        assert_eq!(fs::read_to_string(d.join("out.txt.bak")).unwrap(), "original");
+        assert_eq!(
+            fs::read_to_string(d.join("out.txt.bak")).unwrap(),
+            "original"
+        );
     }
 
     #[test]

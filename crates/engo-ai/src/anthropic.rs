@@ -156,7 +156,11 @@ impl Translator for AnthropicProvider {
             glossary,
             requests,
         );
-        let url = format!("{}{}", self.cfg.endpoint.trim_end_matches('/'), MESSAGES_PATH);
+        let url = format!(
+            "{}{}",
+            self.cfg.endpoint.trim_end_matches('/'),
+            MESSAGES_PATH
+        );
 
         let resp = self
             .client

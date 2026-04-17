@@ -4,8 +4,13 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
 rust-version.workspace = true
-description = "Engo — local-first AI-assisted i18n CLI."
+description = "Engo — local-first, AI-assisted i18n CLI for XLIFF, ARB, and nested JSON catalogs."
+readme = "../../README.md"
+keywords = ["i18n", "xliff", "arb", "translation", "cli"]
+categories = ["command-line-utilities", "internationalization"]
 
 [[bin]]
 name = "engo"
@@ -21,8 +26,8 @@ tokio.workspace = true
 futures.workspace = true
 glob.workspace = true
 indicatif.workspace = true
-engo-core = { path = "../engo-core" }
-engo-ai = { path = "../engo-ai" }
+engo-core = { path = "../engo-core", version = "0.1.0" }
+engo-ai = { path = "../engo-ai", version = "0.1.0" }
 
 [dev-dependencies]
 tokio = { workspace = true }

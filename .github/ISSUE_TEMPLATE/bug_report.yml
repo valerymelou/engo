@@ -1,0 +1,74 @@
+name: Bug report
+description: Something in Engo isn't behaving the way it should.
+title: "[bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. A minimal, self-contained
+        reproducer is the single most valuable thing you can provide.
+
+        Please do not file security issues here — see
+        [SECURITY.md](https://github.com/valerymelou/engo/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Engo version
+      description: Output of `engo --version`.
+      placeholder: "engo 0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other (please describe in "additional context")
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: Format in use
+      options:
+        - XLIFF 1.2
+        - XLIFF 2.0
+        - ARB (Flutter)
+        - JSON (i18next / next-intl / vue-i18n / other)
+        - Not format-specific
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Reproducer
+      description: |
+        Include a minimal `engo.toml`, a minimal sample of the file you're
+        translating, and the exact command you ran.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: |
+        Paste the command output. If the failure is mysterious, include
+        `RUST_LOG=engo=debug,warn engo <cmd>` output.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
