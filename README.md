@@ -60,7 +60,7 @@ cargo build --release
 ./target/release/engo --help
 ```
 
-Minimum Rust version: **1.85**.
+Minimum Rust version: **1.86**.
 
 ---
 
