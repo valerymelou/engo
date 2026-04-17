@@ -72,7 +72,7 @@ pub fn missing_paths(source: &JsonCatalog, target: &JsonCatalog) -> Vec<JsonEntr
         .filter(|e| {
             target_values
                 .get(e.path.as_str())
-                .map_or(true, |v| v.is_empty())
+                .is_none_or(|v| v.is_empty())
         })
         .cloned()
         .collect()

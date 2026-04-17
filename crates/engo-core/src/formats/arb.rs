@@ -128,7 +128,7 @@ pub fn missing_keys(source: &ArbFile, target: &ArbFile) -> Vec<ArbEntry> {
         .filter(|e| {
             target_values
                 .get(e.key.as_str())
-                .map_or(true, |v| v.is_empty())
+                .is_none_or(|v| v.is_empty())
         })
         .cloned()
         .collect()
