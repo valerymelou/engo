@@ -41,10 +41,10 @@ brew install valerymelou/engo/engo
 cargo install engo-cli
 ```
 
-### cargo-binstall (pre-built binary)
+### cargo-install (pre-built binary)
 
 ```bash
-cargo binstall engo-cli
+cargo install engo-cli
 ```
 
 ### Pre-built binaries
@@ -101,11 +101,11 @@ engo translate
 
 ## Supported formats
 
-| Format | Ecosystems | Source of locale | Key shape |
-| --- | --- | --- | --- |
-| **XLIFF 1.2 / 2.0** | Angular, Symfony, Java ResourceBundle, Qt Linguist | `target-language` / `trgLang` attribute | `trans-unit id` |
-| **ARB** | Flutter, Dart `intl` | `@@locale` attribute | top-level key |
-| **JSON** | i18next, next-intl, vue-i18n, FormatJS | filename stem (`fr.json`, `app_fr.json`, `messages-fr.json`) | dot-path `auth.login.button` |
+| Format              | Ecosystems                                         | Source of locale                                             | Key shape                    |
+| ------------------- | -------------------------------------------------- | ------------------------------------------------------------ | ---------------------------- |
+| **XLIFF 1.2 / 2.0** | Angular, Symfony, Java ResourceBundle, Qt Linguist | `target-language` / `trgLang` attribute                      | `trans-unit id`              |
+| **ARB**             | Flutter, Dart `intl`                               | `@@locale` attribute                                         | top-level key                |
+| **JSON**            | i18next, next-intl, vue-i18n, FormatJS             | filename stem (`fr.json`, `app_fr.json`, `messages-fr.json`) | dot-path `auth.login.button` |
 
 Source and target files are paired by filename stem (so `app_en.arb` ↔ `app_fr.arb`, `messages-en.json` ↔ `messages-fr.json`). XLIFF files carry their own language tags, so no pairing is required.
 
