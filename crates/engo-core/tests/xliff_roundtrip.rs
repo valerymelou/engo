@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use engo_core::formats::xliff::{parse, patch, XliffVersion};
 use engo_core::formats::UnitState;
 
+const FIXTURE_INLINE_2_0: &[u8] = include_bytes!("fixtures/inline-2.0.xlf");
+
 const FIXTURE_1_2: &[u8] = include_bytes!("fixtures/simple-1.2.xlf");
 const FIXTURE_2_0: &[u8] = include_bytes!("fixtures/simple-2.0.xlf");
 
@@ -123,4 +125,65 @@ fn patch_with_empty_map_is_noop() {
 fn parse_rejects_missing_version() {
     let bad = b"<?xml version=\"1.0\"?><root/>";
     assert!(parse(bad).is_err());
+}
+
+#[test]
+fn parse_tokenizes_inline_elements() {
+    let view = parse(FIXTURE_INLINE_2_0).expect("parse inline");
+    let unit = view
+        .units
+        .iter()
+        .find(|u| u.id == "verification_email")
+        .unwrap();
+
+    // Source should contain {0}, {1}, {/0} tokens instead of raw XML.
+    assert!(unit.source.contains("{0}"), "missing {{0}} token");
+    assert!(unit.source.contains("{1}"), "missing {{1}} token");
+    assert!(unit.source.contains("{/0}"), "missing {{/0}} token");
+    assert!(!unit.source.contains('<'), "raw XML leaked into source");
+
+    // inline_tags should have entries for both ids.
+    assert!(unit.inline_tags.contains_key("0"));
+    assert!(unit.inline_tags.contains_key("1"));
+    assert!(unit.inline_tags["0"].close.is_some(), "pc close missing");
+    assert!(unit.inline_tags["1"].close.is_none(), "ph should have no close");
+}
+
+#[test]
+fn patch_reconstructs_inline_elements_in_target() {
+    // The AI is expected to preserve {0}, {1}, {/0} tokens in its translation.
+    let translated =
+        " Nous avons envoyé un lien à {0}{1}{/0}. Cliquez pour confirmer. ".to_string();
+    let mut patches = HashMap::new();
+    patches.insert("verification_email".to_string(), translated);
+
+    let patched = patch(FIXTURE_INLINE_2_0, &patches).expect("patch inline");
+
+    // The patched XML must contain the original <pc> and <ph> attributes.
+    let s = std::str::from_utf8(&patched).unwrap();
+    assert!(s.contains("START_TAG_STRONG"), "<pc> attributes missing from target");
+    assert!(s.contains("INTERPOLATION"), "<ph> attributes missing from target");
+
+    // Re-parse: target text (with tokens replaced) should contain the
+    // translated words but no literal token syntax.
+    let view = parse(&patched).expect("re-parse inline");
+    let unit = view
+        .units
+        .iter()
+        .find(|u| u.id == "verification_email")
+        .unwrap();
+    let target = unit.target.as_deref().unwrap_or("");
+    assert!(target.contains("Nous avons"), "translated text missing");
+    assert!(!target.contains("{0}"), "token not replaced in target");
+}
+
+#[test]
+fn patch_plain_unit_unaffected_by_inline_logic() {
+    let mut patches = HashMap::new();
+    patches.insert("plain".to_string(), "Bonjour le monde !".to_string());
+
+    let patched = patch(FIXTURE_INLINE_2_0, &patches).expect("patch plain");
+    let view = parse(&patched).expect("re-parse plain");
+    let unit = view.units.iter().find(|u| u.id == "plain").unwrap();
+    assert_eq!(unit.target.as_deref(), Some("Bonjour le monde !"));
 }

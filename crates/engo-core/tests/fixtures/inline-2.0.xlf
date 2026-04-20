@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="fr">
+  <file id="f1" original="app.ts">
+    <unit id="verification_email">
+      <segment state="initial">
+        <source> We sent a verification link to <pc id="0" equivStart="START_TAG_STRONG"
+            equivEnd="CLOSE_TAG_STRONG" type="other" dispStart="&lt;strong&gt;"
+            dispEnd="&lt;/strong&gt;">
+            <ph id="1" equiv="INTERPOLATION" disp="{{ email }}" />
+          </pc>. Click the link to
+          confirm. </source>
+        <target></target>
+      </segment>
+    </unit>
+    <unit id="plain">
+      <segment state="initial">
+        <source>Hello, world!</source>
+        <target></target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

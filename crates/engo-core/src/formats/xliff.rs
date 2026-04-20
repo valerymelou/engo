@@ -18,6 +18,16 @@
 //! so it can update the enclosing segment's `state` attribute after deciding
 //! whether any contained target was changed. Memory is bounded by the size of
 //! one unit, which is typically tiny.
+//!
+//! # Inline elements
+//!
+//! XLIFF source content may contain inline markup: `<ph>` (standalone
+//! placeholder), `<pc>` (paired code wrapping translatable text), `<sc>`/`<ec>`
+//! (start/end code), and `<mrk>` (annotation span). During `parse` these are
+//! serialised as `{id}` (open / standalone) and `{/id}` (close) tokens embedded
+//! in the source string so the AI sees them as opaque placeholders it must
+//! preserve. During `patch` the tokens are replaced by the original XML events,
+//! restoring the full inline structure in `<target>`.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -46,14 +56,35 @@ impl XliffVersion {
     }
 }
 
+/// XML events needed to reconstruct one XLIFF inline element in `<target>`.
+#[derive(Debug, Clone)]
+pub struct InlineEvents {
+    /// Events for the opening (or self-closing) tag: `<ph …/>` or `<pc …>`.
+    pub open: Vec<Event<'static>>,
+    /// Events for the closing tag `</pc>`. `None` for self-closing elements.
+    pub close: Option<Vec<Event<'static>>>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TransUnit {
     pub id: String,
+    /// Source text with inline elements serialised as `{id}` / `{/id}` tokens.
     pub source: String,
     pub target: Option<String>,
     pub state: UnitState,
     pub notes: Vec<String>,
+    /// Keyed by the XLIFF `id` attribute of each inline element.
+    pub inline_tags: HashMap<String, InlineEvents>,
 }
+
+// Manual PartialEq / Eq above can't auto-derive because Event doesn't impl Eq.
+// We compare only the semantic fields; inline_tags is structural metadata.
+impl PartialEq for InlineEvents {
+    fn eq(&self, _other: &Self) -> bool {
+        true // not used in test assertions
+    }
+}
+impl Eq for InlineEvents {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct XliffView {
@@ -100,12 +131,24 @@ fn attr_value(elem: &BytesStart<'_>, key: &[u8]) -> Result<Option<String>> {
     Ok(None)
 }
 
+/// Whether a tag local name is a paired inline element (has open + close).
+#[inline]
+fn is_paired_inline(name: &[u8]) -> bool {
+    matches!(name, b"pc" | b"sc" | b"mrk" | b"g")
+}
+
+/// Whether a tag local name is a self-closing inline placeholder.
+#[inline]
+fn is_standalone_inline(name: &[u8]) -> bool {
+    matches!(name, b"ph" | b"ec" | b"cp")
+}
+
 /// Parse an XLIFF document into its semantic view.
 ///
-/// Accepts both XLIFF 1.2 and 2.0. `source`/`target`/`note` text is recovered
-/// as concatenated UTF-8 text (inline placeholder tags like `<ph/>` are *not*
-/// expanded — their text content is ignored for the semantic view; the
-/// patcher preserves them on write).
+/// Accepts both XLIFF 1.2 and 2.0. Inline placeholder tags (`<ph/>`, `<pc>`,
+/// etc.) in `<source>` are replaced by `{id}` / `{/id}` tokens in the returned
+/// `source` string; the original XML events are stored in `inline_tags` for use
+/// by the patcher.
 pub fn parse(xml: &[u8]) -> Result<XliffView> {
     let mut reader = Reader::from_reader(xml);
     reader.trim_text(false);
@@ -122,66 +165,72 @@ pub fn parse(xml: &[u8]) -> Result<XliffView> {
     let mut in_target_depth = 0u32;
     let mut in_note = false;
     let mut cur_note = String::new();
+    // Stack of XLIFF ids for nested paired inline elements inside <source>.
+    let mut inline_stack: Vec<String> = Vec::new();
 
     loop {
         let evt = reader.read_event_into(&mut buf)?;
         match &evt {
             Event::Start(e) => {
                 let name = local(e.name());
-                match name {
-                    b"xliff" => {
-                        if let Some(v) = attr_value(e, b"version")? {
-                            version = Some(XliffVersion::from_attr(&v));
-                        }
-                        if let Some(v) = attr_value(e, b"srcLang")? {
-                            source_lang = Some(v);
-                        }
-                        if let Some(v) = attr_value(e, b"trgLang")? {
-                            target_lang = Some(v);
-                        }
+                if name == b"xliff" {
+                    if let Some(v) = attr_value(e, b"version")? {
+                        version = Some(XliffVersion::from_attr(&v));
                     }
-                    b"file" => {
-                        if let Some(v) = attr_value(e, b"source-language")? {
-                            source_lang.get_or_insert(v);
-                        }
-                        if let Some(v) = attr_value(e, b"target-language")? {
-                            target_lang.get_or_insert(v);
-                        }
+                    if let Some(v) = attr_value(e, b"srcLang")? {
+                        source_lang = Some(v);
                     }
-                    b"trans-unit" | b"unit" => {
-                        let id = attr_value(e, b"id")?.unwrap_or_default();
-                        cur = Some(PendingUnit::new(id));
+                    if let Some(v) = attr_value(e, b"trgLang")? {
+                        target_lang = Some(v);
                     }
-                    b"segment" if cur.is_some() => {
-                        // XLIFF 2.0 carries state on <segment>.
-                        if let Some(s) = attr_value(e, b"state")? {
-                            let v = version.unwrap_or(XliffVersion::V2_0);
-                            if let Some(pu) = cur.as_mut() {
-                                pu.state = Some(state_from_attr(&s, v));
-                            }
-                        }
+                } else if name == b"file" {
+                    if let Some(v) = attr_value(e, b"source-language")? {
+                        source_lang.get_or_insert(v);
                     }
-                    b"source" if cur.is_some() => {
-                        in_source_depth += 1;
+                    if let Some(v) = attr_value(e, b"target-language")? {
+                        target_lang.get_or_insert(v);
                     }
-                    b"target" if cur.is_some() => {
-                        in_target_depth += 1;
+                } else if matches!(name, b"trans-unit" | b"unit") {
+                    let id = attr_value(e, b"id")?.unwrap_or_default();
+                    cur = Some(PendingUnit::new(id));
+                } else if name == b"segment" && cur.is_some() {
+                    if let Some(s) = attr_value(e, b"state")? {
+                        let v = version.unwrap_or(XliffVersion::V2_0);
                         if let Some(pu) = cur.as_mut() {
-                            pu.has_target = true;
-                        }
-                        // XLIFF 1.2 carries state on <target>.
-                        if let Some(s) = attr_value(e, b"state")? {
-                            let v = version.unwrap_or(XliffVersion::V1_2);
-                            if let Some(pu) = cur.as_mut() {
-                                pu.state = Some(state_from_attr(&s, v));
-                            }
+                            pu.state = Some(state_from_attr(&s, v));
                         }
                     }
-                    b"note" if cur.is_some() => {
-                        in_note = true;
-                        cur_note.clear();
+                } else if name == b"source" && cur.is_some() {
+                    in_source_depth += 1;
+                } else if name == b"target" && cur.is_some() {
+                    in_target_depth += 1;
+                    if let Some(pu) = cur.as_mut() {
+                        pu.has_target = true;
                     }
-                    _ => {}
+                    if let Some(s) = attr_value(e, b"state")? {
+                        let v = version.unwrap_or(XliffVersion::V1_2);
+                        if let Some(pu) = cur.as_mut() {
+                            pu.state = Some(state_from_attr(&s, v));
+                        }
+                    }
+                } else if name == b"note" && cur.is_some() {
+                    in_note = true;
+                    cur_note.clear();
+                } else if in_source_depth > 0 && is_paired_inline(name) {
+                    if let Some(id) = attr_value(e, b"id")? {
+                        if let Some(pu) = cur.as_mut() {
+                            pu.source.push_str(&format!("{{{}}}", id));
+                            pu.inline_tags
+                                .entry(id.clone())
+                                .or_insert_with(|| InlineEvents {
+                                    open: vec![],
+                                    close: None,
+                                })
+                                .open
+                                .push(Event::Start(e.clone().into_owned()));
+                        }
+                        inline_stack.push(id);
+                    }
                 }
             }
             Event::Empty(e) => {
@@ -195,25 +244,47 @@ pub fn parse(xml: &[u8]) -> Result<XliffView> {
                             pu.state = Some(state_from_attr(&s, v));
                         }
                     }
+                } else if in_source_depth > 0 && is_standalone_inline(name) {
+                    if let Some(id) = attr_value(e, b"id")? {
+                        if let Some(pu) = cur.as_mut() {
+                            pu.source.push_str(&format!("{{{}}}", id));
+                            pu.inline_tags
+                                .entry(id)
+                                .or_insert_with(|| InlineEvents {
+                                    open: vec![],
+                                    close: None,
+                                })
+                                .open
+                                .push(Event::Empty(e.clone().into_owned()));
+                        }
+                    }
                 }
             }
             Event::End(e) => {
                 let name = local(e.name());
-                match name {
-                    b"source" if in_source_depth > 0 => in_source_depth -= 1,
-                    b"target" if in_target_depth > 0 => in_target_depth -= 1,
-                    b"note" if in_note => {
-                        in_note = false;
+                if name == b"source" && in_source_depth > 0 {
+                    in_source_depth -= 1;
+                } else if name == b"target" && in_target_depth > 0 {
+                    in_target_depth -= 1;
+                } else if name == b"note" && in_note {
+                    in_note = false;
+                    if let Some(pu) = cur.as_mut() {
+                        pu.notes.push(std::mem::take(&mut cur_note));
+                    }
+                } else if matches!(name, b"trans-unit" | b"unit") {
+                    if let Some(pu) = cur.take() {
+                        units.push(pu.into_unit());
+                    }
+                } else if in_source_depth > 0 && is_paired_inline(name) {
+                    if let Some(id) = inline_stack.pop() {
                         if let Some(pu) = cur.as_mut() {
-                            pu.notes.push(std::mem::take(&mut cur_note));
+                            pu.source.push_str(&format!("{{/{}}}", id));
+                            if let Some(entry) = pu.inline_tags.get_mut(&id) {
+                                entry.close =
+                                    Some(vec![Event::End(e.clone().into_owned())]);
+                            }
                         }
                     }
-                    b"trans-unit" | b"unit" => {
-                        if let Some(pu) = cur.take() {
-                            units.push(pu.into_unit());
-                        }
-                    }
-                    _ => {}
                 }
             }
             Event::Text(t) => {
@@ -264,6 +335,7 @@ struct PendingUnit {
     state: Option<UnitState>,
     notes: Vec<String>,
     has_target: bool,
+    inline_tags: HashMap<String, InlineEvents>,
 }
 
 impl PendingUnit {
@@ -275,14 +347,11 @@ impl PendingUnit {
             state: None,
             notes: Vec::new(),
             has_target: false,
+            inline_tags: HashMap::new(),
         }
     }
 
     fn into_unit(self) -> TransUnit {
-        // Default state: if the target is missing or empty, we treat the unit
-        // as needing translation. Otherwise, if XLIFF didn't tell us, assume
-        // the author translated it (pragmatic default — real state is usually
-        // present in well-formed XLIFF).
         let default_state = match &self.target {
             Some(t) if !t.is_empty() => UnitState::Translated,
             _ => UnitState::NeedsTranslation,
@@ -297,6 +366,7 @@ impl PendingUnit {
             },
             state: self.state.unwrap_or(default_state),
             notes: self.notes,
+            inline_tags: self.inline_tags,
         }
     }
 }
@@ -311,12 +381,22 @@ impl PendingUnit {
 ///
 /// If a patched unit has no `<target>` element at all, one is inserted
 /// immediately after `</source>` (1.2) or before `</segment>` (2.0).
+///
+/// Inline elements (`<ph>`, `<pc>`, etc.) are reconstructed in `<target>` by
+/// replacing the `{id}` / `{/id}` tokens the AI was asked to preserve.
 pub fn patch(xml: &[u8], patches: &HashMap<String, String>) -> Result<Vec<u8>> {
     if patches.is_empty() {
         return Ok(xml.to_vec());
     }
 
-    let version = parse(xml)?.version;
+    let view = parse(xml)?;
+    let version = view.version;
+    // Build per-unit inline tag maps for use during reconstruction.
+    let inline_map: HashMap<String, HashMap<String, InlineEvents>> = view
+        .units
+        .into_iter()
+        .map(|u| (u.id, u.inline_tags))
+        .collect();
 
     let mut reader = Reader::from_reader(xml);
     reader.trim_text(false);
@@ -325,8 +405,6 @@ pub fn patch(xml: &[u8], patches: &HashMap<String, String>) -> Result<Vec<u8>> {
     let mut out = Cursor::new(Vec::<u8>::with_capacity(xml.len()));
     let mut writer = Writer::new(&mut out);
 
-    // Buffered events within a trans-unit/unit. When the unit closes we
-    // decide whether to rewrite it and then flush.
     let mut unit_buf: Option<Vec<Event<'static>>> = None;
     let mut unit_id: Option<String> = None;
 
@@ -334,7 +412,6 @@ pub fn patch(xml: &[u8], patches: &HashMap<String, String>) -> Result<Vec<u8>> {
         let evt = reader.read_event_into(&mut buf)?;
         let is_eof = matches!(evt, Event::Eof);
 
-        // Decide if this event opens or closes a trans-unit/unit.
         match &evt {
             Event::Start(e) => {
                 let name = local(e.name());
@@ -351,7 +428,11 @@ pub fn patch(xml: &[u8], patches: &HashMap<String, String>) -> Result<Vec<u8>> {
                     let id = unit_id.take();
                     let new_target = id.as_deref().and_then(|i| patches.get(i));
                     let emitted = if let Some(nt) = new_target {
-                        rewrite_unit(events, nt, version)?
+                        let tags = id
+                            .as_deref()
+                            .and_then(|i| inline_map.get(i))
+                            .map(|m| m as &HashMap<String, InlineEvents>);
+                        rewrite_unit(events, nt, version, tags)?
                     } else {
                         events
                     };
@@ -385,7 +466,11 @@ fn rewrite_unit(
     events: Vec<Event<'static>>,
     new_target: &str,
     version: XliffVersion,
+    inline_tags: Option<&HashMap<String, InlineEvents>>,
 ) -> Result<Vec<Event<'static>>> {
+    let empty_tags: HashMap<String, InlineEvents> = HashMap::new();
+    let inline_tags = inline_tags.unwrap_or(&empty_tags);
+
     let mut out: Vec<Event<'static>> = Vec::with_capacity(events.len() + 4);
     let mut i = 0;
     let mut target_handled = false;
@@ -396,9 +481,7 @@ fn rewrite_unit(
             Event::Start(start) if local(start.name()) == b"target" => {
                 let updated_start = update_target_state_attr(start, version)?;
                 out.push(Event::Start(updated_start));
-                out.push(Event::Text(BytesText::from_escaped(
-                    escape_text(new_target).into_owned(),
-                )));
+                out.extend(build_target_events(new_target, inline_tags));
                 // Skip to matching </target>.
                 let mut depth = 1u32;
                 i += 1;
@@ -406,7 +489,7 @@ fn rewrite_unit(
                     match &events[i] {
                         Event::Start(s) if local(s.name()) == b"target" => depth += 1,
                         Event::End(end) if local(end.name()) == b"target" => {
-                            depth -= 1;
+                            depth = depth.saturating_sub(1);
                             if depth == 0 {
                                 out.push(Event::End(end.clone().into_owned()));
                             }
@@ -421,9 +504,7 @@ fn rewrite_unit(
             Event::Empty(start) if local(start.name()) == b"target" => {
                 let updated_start = update_target_state_attr(start, version)?;
                 out.push(Event::Start(updated_start));
-                out.push(Event::Text(BytesText::from_escaped(
-                    escape_text(new_target).into_owned(),
-                )));
+                out.extend(build_target_events(new_target, inline_tags));
                 out.push(Event::End(BytesEnd::new("target")));
                 target_handled = true;
             }
@@ -438,20 +519,18 @@ fn rewrite_unit(
     }
 
     if !target_handled {
-        // No <target> was present. Insert one — placement depends on version.
-        let new_target_events = vec![
-            Event::Start({
+        let new_target_events: Vec<Event<'static>> = {
+            let mut v = vec![Event::Start({
                 let mut bs = BytesStart::new("target");
                 if version == XliffVersion::V1_2 {
                     bs.push_attribute(("state", "translated"));
                 }
                 bs
-            }),
-            Event::Text(BytesText::from_escaped(
-                escape_text(new_target).into_owned(),
-            )),
-            Event::End(BytesEnd::new("target")),
-        ];
+            })];
+            v.extend(build_target_events(new_target, inline_tags));
+            v.push(Event::End(BytesEnd::new("target")));
+            v
+        };
         let insert_at = match version {
             XliffVersion::V1_2 => position_after_source_end(&out),
             XliffVersion::V2_0 => position_before_segment_end(&out),
@@ -463,6 +542,69 @@ fn rewrite_unit(
     }
 
     Ok(out)
+}
+
+/// Expand a translated string (which may contain `{id}` / `{/id}` inline
+/// tokens) into a sequence of XML events ready to be written inside `<target>`.
+fn build_target_events(
+    text: &str,
+    inline_tags: &HashMap<String, InlineEvents>,
+) -> Vec<Event<'static>> {
+    // Fast path: no inline tokens.
+    if inline_tags.is_empty() || !text.contains('{') {
+        return vec![Event::Text(BytesText::from_escaped(
+            escape_text(text).into_owned(),
+        ))];
+    }
+
+    let mut events: Vec<Event<'static>> = Vec::new();
+    let mut remaining = text;
+
+    while let Some(pos) = remaining.find('{') {
+        if pos > 0 {
+            events.push(Event::Text(BytesText::from_escaped(
+                escape_text(&remaining[..pos]).into_owned(),
+            )));
+        }
+        remaining = &remaining[pos..];
+
+        if let Some(end) = remaining.find('}') {
+            let inner = &remaining[1..end];
+            remaining = &remaining[end + 1..];
+
+            let is_close = inner.starts_with('/');
+            let id = if is_close { &inner[1..] } else { inner };
+
+            if let Some(tag) = inline_tags.get(id) {
+                if is_close {
+                    if let Some(close) = &tag.close {
+                        events.extend(close.iter().cloned());
+                    }
+                } else {
+                    events.extend(tag.open.iter().cloned());
+                }
+            } else {
+                // Not a known inline token — preserve as literal text.
+                events.push(Event::Text(BytesText::from_escaped(
+                    escape_text(&format!("{{{}}}", inner)).into_owned(),
+                )));
+            }
+        } else {
+            // No closing brace — emit rest as text and stop.
+            events.push(Event::Text(BytesText::from_escaped(
+                escape_text(remaining).into_owned(),
+            )));
+            remaining = "";
+        }
+    }
+
+    if !remaining.is_empty() {
+        events.push(Event::Text(BytesText::from_escaped(
+            escape_text(remaining).into_owned(),
+        )));
+    }
+
+    events
 }
 
 fn update_target_state_attr(
@@ -535,8 +677,6 @@ fn position_before_segment_end(events: &[Event<'static>]) -> Option<usize> {
 
 /// Escape text for safe inclusion as XML character data.
 fn escape_text(s: &str) -> Cow<'_, str> {
-    // Only `&`, `<`, `>` need escaping in text nodes. We intentionally do *not*
-    // escape quotes — they're only special in attribute values.
     let needs = s
         .as_bytes()
         .iter()
