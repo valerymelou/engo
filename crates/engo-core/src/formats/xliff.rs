@@ -280,8 +280,7 @@ pub fn parse(xml: &[u8]) -> Result<XliffView> {
                         if let Some(pu) = cur.as_mut() {
                             pu.source.push_str(&format!("{{/{}}}", id));
                             if let Some(entry) = pu.inline_tags.get_mut(&id) {
-                                entry.close =
-                                    Some(vec![Event::End(e.clone().into_owned())]);
+                                entry.close = Some(vec![Event::End(e.clone().into_owned())]);
                             }
                         }
                     }

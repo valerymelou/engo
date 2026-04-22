@@ -146,7 +146,10 @@ fn parse_tokenizes_inline_elements() {
     assert!(unit.inline_tags.contains_key("0"));
     assert!(unit.inline_tags.contains_key("1"));
     assert!(unit.inline_tags["0"].close.is_some(), "pc close missing");
-    assert!(unit.inline_tags["1"].close.is_none(), "ph should have no close");
+    assert!(
+        unit.inline_tags["1"].close.is_none(),
+        "ph should have no close"
+    );
 }
 
 #[test]
@@ -161,8 +164,14 @@ fn patch_reconstructs_inline_elements_in_target() {
 
     // The patched XML must contain the original <pc> and <ph> attributes.
     let s = std::str::from_utf8(&patched).unwrap();
-    assert!(s.contains("START_TAG_STRONG"), "<pc> attributes missing from target");
-    assert!(s.contains("INTERPOLATION"), "<ph> attributes missing from target");
+    assert!(
+        s.contains("START_TAG_STRONG"),
+        "<pc> attributes missing from target"
+    );
+    assert!(
+        s.contains("INTERPOLATION"),
+        "<ph> attributes missing from target"
+    );
 
     // Re-parse: target text (with tokens replaced) should contain the
     // translated words but no literal token syntax.
