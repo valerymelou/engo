@@ -21,7 +21,7 @@ reqwest.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 tokio.workspace = true
-engo-core = { path = "../engo-core", version = "0.1.1" }
+engo-core = { path = "../engo-core", version = "0.1.2" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "test-util"] }
